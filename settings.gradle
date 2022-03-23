@@ -1,0 +1,3 @@
+rootProject.name = 'abac-associations-bug'
+
+includeBuild('../thunx')
