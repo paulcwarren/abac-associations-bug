@@ -3,9 +3,11 @@ package com.example.abacassociationsbug;
 import com.github.paulcwarren.ginkgo4j.Ginkgo4jSpringRunner;
 import com.jayway.restassured.RestAssured;
 import com.jayway.restassured.response.Response;
+import com.querydsl.core.types.Predicate;
 import com.theoryinpractise.halbuilder.api.ReadableRepresentation;
 import com.theoryinpractise.halbuilder.api.RepresentationFactory;
 import com.theoryinpractise.halbuilder.standard.StandardRepresentationFactory;
+import java.util.stream.StreamSupport;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.http.HttpStatus;
@@ -52,30 +54,47 @@ public class AbacAssociationsBugApplicationTests {
     {
         Describe("Hibernate investigation", () -> {
 
-            Context("given a parent doc with a child doc A but not a child doc B", () -> {
+            Context("given a parent doc with a child doc A and a parent doc with child doc B", () -> {
 
                 BeforeEach(() -> {
                     RestAssured.port = port;
 
                     ChildDocA a = new ChildDocA();
-                    a.setName("child doc a");
+                    a.setName("child doc");
                     a = childDocARepo.save(a);
 
-                    ParentDoc pdoc = new ParentDoc();
-                    pdoc.setName("parent-doc");
-                    pdoc.setBroker("foo");
-                    pdoc.setDocA(a);
-                    pdoc = parentDocRepo.save(pdoc);
+                    ParentDoc pdoc1 = new ParentDoc();
+                    pdoc1.setName("parent-doc");
+                    pdoc1.setBroker("foo");
+                    pdoc1.setDocA(a);
+                    pdoc1 = parentDocRepo.save(pdoc1);
 
-                    id = pdoc.getId();
+                    ChildDocB b = new ChildDocB();
+                    b.setName("child doc");
+                    b = childDocBRepo.save(b);
+
+                    ParentDoc pdoc2 = new ParentDoc();
+                    pdoc2.setName("parent-doc");
+                    pdoc2.setBroker("foo");
+                    pdoc2.setDocB(b);
+                    pdoc2 = parentDocRepo.save(pdoc2);
+
+                    id = pdoc1.getId();
                 });
 
-                It("should have the right structure", () -> {
-                    String res = when().get("/parentDocs?broker=foo").getBody().print();
+//                It("should have the right structure", () -> {
+//                    String res = when().get("/parentDocs?broker=foo").getBody().print();
+//
+//                    RepresentationFactory representationFactory = new StandardRepresentationFactory();
+//                    ReadableRepresentation halResponse = representationFactory.readRepresentation("application/hal+json",new StringReader(res));
+//                    assertThat(halResponse.getResources().size(), is(2));
+//                });
 
-                    RepresentationFactory representationFactory = new StandardRepresentationFactory();
-                    ReadableRepresentation halResponse = representationFactory.readRepresentation("application/hal+json",new StringReader(res));
-                    assertThat(halResponse.getResources().size(), is(1));
+                It("should handle searching across associations", () -> {
+                    Predicate searchQuery = QAbacAssociationsBugApplicationTests_ParentDoc.parentDoc.docA.name.eq("child doc")
+                                    .or(QAbacAssociationsBugApplicationTests_ParentDoc.parentDoc.docB.name.eq("child doc"));
+                    Iterable<ParentDoc> result = parentDocRepo.findAll(searchQuery);
+                    assertThat(StreamSupport.stream(result.spliterator(), false).count(), is(2));
                 });
             });
         });
